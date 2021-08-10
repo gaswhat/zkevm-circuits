@@ -9,13 +9,15 @@
 #![deny(missing_docs)]
 #![deny(unsafe_code)]
 
+mod error;
+mod evm;
 use std::{
     collections::BTreeMap,
     iter::Iterator,
     ops::{Index, IndexMut},
 };
 
-use itertools::Itertools;
+use evm::{EvmWord, ExecutionStep, GlobalCounter, MemAddress, ProgramCounter};
 use pasta_curves::arithmetic::FieldExt;
 
 // -------- EVM Circuit
@@ -29,9 +31,9 @@ use pasta_curves::arithmetic::FieldExt;
 // Sorty by gc
 //`MemoryElem{target 	gc 	val1 	val2 	val3}`
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone)]
 struct BlockConstants<F: FieldExt> {
-    hash: [u8; 256], // Until we know how to deal with it
+    hash: EvmWord, // Until we know how to deal with it
     coinbase: F,
     timestamp: F,
     number: F,
@@ -57,32 +59,31 @@ pub enum Target {
     Storage,
 }
 
-/// Doc
-#[derive(Debug, Clone, Copy)]
-pub struct Operation<F: FieldExt> {
-    rw: RW,
-    target: Target,
-    key: F,
-    value: F,
-    opcode_info: &'static str,
+pub enum Operation {
+    Memory {
+        rw: RW,
+        gc: GlobalCounter,
+        addr: MemAddress,
+        value: EvmWord,
+    },
+    Stack {
+        rw: RW,
+        gc: GlobalCounter,
+        addr: usize, // Create a new type
+        value: EvmWord,
+    },
+    Storage, // Update with https://hackmd.io/kON1GVL6QOC6t5tf_OTuKA with Han's review
 }
 
 /// Bus Mapping structure
 #[derive(Debug, Clone)]
 pub struct BusMapping<F: FieldExt> {
-    entries: Vec<Operation<F>>,
+    entries: Vec<ExecutionStep>,
     block_ctants: BlockConstants<F>,
-    // Helper to sort by key groups. We store how many different keys we have when building the Bus Mapping
-    #[doc(hidden)]
-    mem_ops_sorted: BTreeMap<usize, Vec<Operation<F>>>,
-    #[doc(hidden)]
-    stack_ops_sorted: BTreeMap<usize, Vec<Operation<F>>>,
-    #[doc(hidden)]
-    storage_ops_sorted: BTreeMap<usize, Vec<Operation<F>>>,
 }
 
 impl<F: FieldExt> Index<usize> for BusMapping<F> {
-    type Output = Operation<F>;
+    type Output = ExecutionStep;
     fn index(&self, index: usize) -> &Self::Output {
         &self.entries[index]
     }
@@ -94,7 +95,7 @@ impl<F: FieldExt> IndexMut<usize> for BusMapping<F> {
     }
 }
 
-impl<F: FieldExt> From<(Vec<Operation<F>>, BlockConstants<F>)> for BusMapping<F> {
+/*impl<F: FieldExt> From<(Vec<Operation<F>>, BlockConstants<F>)> for BusMapping<F> {
     fn from(inp: (Vec<Operation<F>>, BlockConstants<F>)) -> Self {
         // Initialize the BTreeMaps with empty vecs for each key group
         let mut mem_ops_sorted = BTreeMap::new();
@@ -132,28 +133,28 @@ impl<F: FieldExt> From<(Vec<Operation<F>>, BlockConstants<F>)> for BusMapping<F>
         }
     }
 }
-
 impl<F: FieldExt> BusMapping<F> {
     /// Docs
-    pub fn stack_part(&self) -> impl Iterator<Item = &Operation<F>> {
+    pub fn stack_part(&self) -> impl Iterator<Item = &Operation> {
         // filter out Operation::Stack
         // group by idx first
         // sort idx increasingly
         // sort gc in each group
-        self.stack_ops_sorted.values().rev().flatten()
+        unimplemented!()
     }
 
     /// Docs
-    pub fn memory_part(&self) -> impl Iterator<Item = &Operation<F>> {
+    pub fn memory_part(&self) -> impl Iterator<Item = &Operation> {
         // filter out Operation::Memory
         // group by address first
         // sort address increasingly
         // sort gc in each group
-        self.mem_ops_sorted.values().flatten()
+        unimplemented!()
     }
 
     /// Docs
-    pub fn storage_part(&self) -> impl Iterator<Item = &Operation<F>> {
-        self.stack_ops_sorted.values().flatten()
+    pub fn storage_part(&self) -> impl Iterator<Item = &Operation> {
+        unimplemented!()
     }
 }
+*/
